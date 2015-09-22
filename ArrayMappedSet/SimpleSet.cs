@@ -23,7 +23,8 @@ namespace ArrayMappedSet
         const int BITS = 5;
         const uint BMASK = (1 << BITS) - 1;
 
-        // if T implements IEquatable, then use that for equality checks instead of defaulting to EqualityComparer<T>.Default
+        // if T implements IEquatable, then use that for equality checks via an open instance
+        // delegate instead of defaulting to EqualityComparer<T>.Default
         static Func<T, T, bool> eq = typeof(T).IsClass && typeof(IEquatable<T>).IsAssignableFrom(typeof(T))
                                    ? Delegate.CreateDelegate(typeof(Func<T, T, bool>), null, typeof(T).GetMethod("Equals", new[] { typeof(T) })) as Func<T, T, bool>
                                    : EqualityComparer<T>.Default.Equals;
@@ -47,6 +48,31 @@ namespace ArrayMappedSet
             var tmp = new SimpleSet<T>();
             foreach (var x in values) tmp = tmp.Add(x);
             return tmp;
+        }
+
+        public static SimpleSet<T> Empty
+        {
+            get { return default(SimpleSet<T>); }
+        }
+
+        public bool IsValue
+        {
+            get { return children == null && bitmap != 0; }
+        }
+
+        public bool IsEmpty
+        {
+            get { return children == null && bitmap == 0; }
+        }
+
+        public T Value
+        {
+            get
+            {
+                if (children != null || bitmap == 0)
+                    throw new InvalidOperationException("Set is not a single value!");
+                return value;
+            }
         }
 
         public SimpleSet<T> Add(T value)
@@ -172,6 +198,70 @@ namespace ArrayMappedSet
             return new SimpleSet<T>(ubitmap, uchildren);
         }
 
+        public SimpleSet<T> Remove(T value)
+        {
+            return Remove(value, Hash(value));
+        }
+
+        SimpleSet<T> Remove(T value, uint hash)
+        {
+            if (children == null)   // value or empty node
+            {
+                return bitmap != 0 && eq(this.value, value) ? Empty : this;
+            }
+            else if (bitmap == 0)   // collision node
+            {
+                if (children.Length == 2)
+                {
+                    var i = eq(value, children[0].value) ?  1:
+                            eq(value, children[1].value) ?  0:
+                                                           -1;
+                    return i < 0 ? this : new SimpleSet<T>(children[i].value);
+                }
+                for (var i = 0; i < children.Length; ++i)
+                {
+                    if (eq(value, children[i].value))
+                    {
+                        var nchildren = new SimpleSet<T>[children.Length - 1];
+                        Array.Copy(children, 0, nchildren, 0, i);
+                        Array.Copy(children, i + 1, nchildren, i, nchildren.Length - i);
+                        return new SimpleSet<T>(IS_COLLISION, nchildren);
+                    }
+                }
+            }
+            else
+            {
+                var bit = ComputeBit(hash);
+                if (Exists(bit, bitmap))
+                {
+                    var i = Index(bit, bitmap);
+                    var x = children[i].Remove(value, hash >> BITS);
+                    SimpleSet<T>[] nchildren;
+                    uint nbitmap;
+                    if (!x.IsEmpty)
+                    {
+                        nchildren = new SimpleSet<T>[children.Length];
+                        Array.Copy(children, 0, nchildren, 0, nchildren.Length);
+                        nchildren[i] = x;
+                        nbitmap = bitmap;
+                    }
+                    else if (children.Length > 1)   // empty child set, but elements remain
+                    {
+                        nchildren = new SimpleSet<T>[children.Length - 1];
+                        Array.Copy(children, 0, nchildren, 0, i);
+                        Array.Copy(children, i + 1, nchildren, i, nchildren.Length - i);
+                        nbitmap = bitmap & ~bit;
+                    }
+                    else
+                    {
+                        return Empty;
+                    }
+                    return new SimpleSet<T>(nbitmap, nchildren);
+                }
+            }
+            return this;
+        }
+
         public SimpleSet<T> Intersect(SimpleSet<T> other)
         {
             return Intersect(ref other, 0);
@@ -182,11 +272,11 @@ namespace ArrayMappedSet
             // if either set is a simple value, or empty, then return the other set with this value
             if (other.children == null)
             {
-                return other.bitmap != 0 && Contains(other.value, Hash(other.value) >> level) ? other : default(SimpleSet<T>);
+                return other.bitmap != 0 && Contains(other.value, Hash(other.value) >> level) ? other : Empty;
             }
             else if (children == null)
             {
-                return bitmap != 0 && other.Contains(value, Hash(value) >> level) ? this : default(SimpleSet<T>);
+                return bitmap != 0 && other.Contains(value, Hash(value) >> level) ? this : Empty;
             }
             else if (bitmap == 0) // collision node
             {

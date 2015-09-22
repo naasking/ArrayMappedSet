@@ -31,6 +31,7 @@ namespace SetTests
             var set1 = SimpleSet<int>.Create(data);
             Debug.Assert(set1.OrderBy(x => x).SequenceEqual(data.Distinct().OrderBy(x => x)));
             Debug.Assert(set1.Union(set1).OrderBy(x => x).SequenceEqual(data.Distinct().OrderBy(x => x)));
+            CheckRemove(set1, data);
         }
         static void CheckCollision()
         {
@@ -60,6 +61,18 @@ namespace SetTests
             }
             //Debug.Assert(union.SequenceEqual(source));
             Debug.Assert(set1.Intersect(set2).OrderBy(x => x).SequenceEqual(data1.Intersect(data2).Distinct().OrderBy(x => x)));
+            CheckRemove(set1, data1);
+            CheckRemove(set2, data2);
+        }
+        static void CheckRemove<T>(SimpleSet<T> set, IEnumerable<T> data)
+        {
+            foreach (var x in data.Distinct())
+            {
+                Debug.Assert(set.Contains(x));
+                set = set.Remove(x);
+                Debug.Assert(!set.Contains(x));
+            }
+            Debug.Assert(set.IsEmpty);
         }
         static Random rand = new Random();
         static int[] Generate(int count, int upper = int.MaxValue)
@@ -88,7 +101,7 @@ namespace SetTests
             //CheckAll(Generate(65000), Generate(65537));
             while (true)
             {
-                CheckAll(Generate(65000), Generate(650000));
+                CheckAll(Generate(6500), Generate(6500));
             }
             //var csv = System.IO.File.ReadAllLines("data.csv").Select(x => x.Split(','));
             //var data1 = csv.Select(x => int.Parse(x[0])).ToArray();
