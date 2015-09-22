@@ -21,7 +21,7 @@ It utilizes a struct encoding for compactness:
 A unique property of this struct encoding is that single-element sets are just as fast
 and compact as inlining the value itself into its enclosing context, at least when T
 is a reference type. For instance, if you have a field of type T, a field of
-type SimpleSet<T> containing a single value is just as compact and efficient.
+type SimpleSet\<T\> containing a single value is just as compact and efficient.
 
 # Future Work
 
@@ -39,7 +39,7 @@ is truly more compact and efficient overall:
 	it to the children array. This is essentially the representation which Jules Jacobs devised
 	that is used in Sasa's trie [1]. It's much more compact for large trees because there
 	are many more leaves than internal nodes, and leaves are encoded as T[] instead of
-	Set<T>[], which has many unused headers. With a suitable encoding using generics, we
+	Set\<T\>[], which has many unused headers. With a suitable encoding using generics, we
 	can compact this even further for the final level of the tree.
 
 [1] https://sourceforge.net/p/sasa/code/ci/default/tree/Sasa.Collections/Trie.cs
