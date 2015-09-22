@@ -5,6 +5,10 @@ using System.Text;
 
 namespace ArrayMappedSet
 {
+    /// <summary>
+    /// A simple immutable set.
+    /// </summary>
+    /// <typeparam name="T">The type of set elements.</typeparam>
     public struct SimpleSet<T> : IEnumerable<T>
     {
         // 1. when children != null, then either a collision node or an internal set node
@@ -29,6 +33,10 @@ namespace ArrayMappedSet
                                    ? Delegate.CreateDelegate(typeof(Func<T, T, bool>), null, typeof(T).GetMethod("Equals", new[] { typeof(T) })) as Func<T, T, bool>
                                    : EqualityComparer<T>.Default.Equals;
 
+        /// <summary>
+        /// A set with a single value.
+        /// </summary>
+        /// <param name="value"></param>
         public SimpleSet(T value)
         {
             this.bitmap = IS_LEAF;
@@ -36,13 +44,18 @@ namespace ArrayMappedSet
             this.children = null;
         }
 
-        public SimpleSet(uint bitmap, params SimpleSet<T>[] children)
+        SimpleSet(uint bitmap, params SimpleSet<T>[] children)
         {
             this.bitmap = bitmap;
             this.value = default(T);
             this.children = children;
         }
 
+        /// <summary>
+        /// Construct a set from a sequence of values.
+        /// </summary>
+        /// <param name="values"></param>
+        /// <returns></returns>
         public static SimpleSet<T> Create(IEnumerable<T> values)
         {
             var tmp = new SimpleSet<T>();
@@ -50,31 +63,48 @@ namespace ArrayMappedSet
             return tmp;
         }
 
+        /// <summary>
+        /// The empty set.
+        /// </summary>
         public static SimpleSet<T> Empty
         {
             get { return default(SimpleSet<T>); }
         }
 
+        /// <summary>
+        /// True if the set has only a single element.
+        /// </summary>
         public bool IsValue
         {
             get { return children == null && bitmap != 0; }
         }
 
+        /// <summary>
+        /// True if the set is empty.
+        /// </summary>
         public bool IsEmpty
         {
             get { return children == null && bitmap == 0; }
         }
 
+        /// <summary>
+        /// The value of a single element set.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">Thrown if the set has more than one value.</exception>
         public T Value
         {
             get
             {
-                if (children != null || bitmap == 0)
-                    throw new InvalidOperationException("Set is not a single value!");
-                return value;
+                if (IsValue) return value;
+                throw new InvalidOperationException("Set is not a single value!");
             }
         }
 
+        /// <summary>
+        /// Add an element to the set.
+        /// </summary>
+        /// <param name="value">The value to add.</param>
+        /// <returns>A set with the new value.</returns>
         public SimpleSet<T> Add(T value)
         {
             return Add(value, Hash(value), 0);
@@ -153,6 +183,11 @@ namespace ArrayMappedSet
             return new SimpleSet<T>(xbit | ybit, nchild);
         }
 
+        /// <summary>
+        /// The union of two sets.
+        /// </summary>
+        /// <param name="other">The set to merge.</param>
+        /// <returns>The union of this set, and <paramref name="other"/>.</returns>
         public SimpleSet<T> Union(SimpleSet<T> other)
         {
             return Union(ref other, 0);
@@ -198,6 +233,11 @@ namespace ArrayMappedSet
             return new SimpleSet<T>(ubitmap, uchildren);
         }
 
+        /// <summary>
+        /// Remove an element from the set.
+        /// </summary>
+        /// <param name="value">The value to remove.</param>
+        /// <returns>A set without the given value.</returns>
         public SimpleSet<T> Remove(T value)
         {
             return Remove(value, Hash(value));
@@ -262,6 +302,11 @@ namespace ArrayMappedSet
             return this;
         }
 
+        /// <summary>
+        /// The intersection of two sets.
+        /// </summary>
+        /// <param name="other">The set with which to intersect.</param>
+        /// <returns>The intersection of this set and <paramref="other"/>.</returns>
         public SimpleSet<T> Intersect(SimpleSet<T> other)
         {
             return Intersect(ref other, 0);
@@ -307,6 +352,11 @@ namespace ArrayMappedSet
             return new SimpleSet<T>(ibitmap, ichildren);
         }
 
+        /// <summary>
+        /// Checks the set for an element.
+        /// </summary>
+        /// <param name="value">The value to check for.</param>
+        /// <returns>True if the value is in the set, false otherwise.</returns>
         public bool Contains(T value)
         {
             return Contains(value, Hash(value));
@@ -321,6 +371,10 @@ namespace ArrayMappedSet
             return Exists(bit, bitmap) && children[i].Contains(value, hash >> BITS);
         }
 
+        /// <summary>
+        /// Obtain an enumerator for the set.
+        /// </summary>
+        /// <returns></returns>
         public IEnumerator<T> GetEnumerator()
         {
             var en = children != null ? children.SelectMany(x => x):
@@ -334,6 +388,10 @@ namespace ArrayMappedSet
             return GetEnumerator();
         }
 
+        /// <summary>
+        /// Create a string representation of the set.
+        /// </summary>
+        /// <returns></returns>
         public override string ToString()
         {
             return bitmap == 0 && children != null ? children.Aggregate("{", (acc, x) => acc + "," + x) + "}":
